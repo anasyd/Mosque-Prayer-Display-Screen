@@ -1,9 +1,9 @@
 import Calendar from "@/components/Calendar/Calendar"
-
-export const dynamic = "force-dynamic"
 import { getAllPrayerTimes, getMetaData } from "@/services/MosqueDataService"
 import { MosqueMetadataType } from "@/types/MosqueDataType"
 import { Metadata } from "next"
+
+export const dynamic = "force-dynamic"
 
 export async function generateMetadata(): Promise<Metadata> {
   const mosqueMetadata: MosqueMetadataType = await getMetaData()
