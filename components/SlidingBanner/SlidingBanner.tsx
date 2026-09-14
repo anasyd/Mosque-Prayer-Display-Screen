@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 
-const transitionTime = parseInt(process.env.SLIDE_TRANSITION_TIME ?? "7") // defaults to 7 seconds
+const transitionTime = parseInt(process.env.NEXT_PUBLIC_SLIDE_TRANSITION_TIME ?? "7") // defaults to 7 seconds
 
 export default function SlidingBanner({ slides }: { slides: any }) {
   const [currentSlide, setCurrentSlide] = useState(0)

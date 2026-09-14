@@ -3,6 +3,7 @@ import AddAnnouncement
   from '@/components/Admin/Announcement/AddAnnouncement'
 import EmbedTodayPrayerTimes
   from "@/components/Admin/Embed/EmbedTodayPrayerTimes/EmbedTodayPrayerTimes"
+import TimetableImporter from "@/components/Admin/TimetableImporter"
 
 export default function AdminPage ({
   metadata,
@@ -27,6 +28,7 @@ export default function AdminPage ({
       </div>
 
       <div className="py-10 px-4 sm:px-6 lg:px-8 bg-white flex flex-row flex-wrap justify-center items-start gap-6">
+        <TimetableImporter />
         <AddAnnouncement/>
         <EmbedTodayPrayerTimes/>
       </div>
@@ -34,4 +36,3 @@ export default function AdminPage ({
     </div>
   )
 }
-

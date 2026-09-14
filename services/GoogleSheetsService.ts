@@ -16,6 +16,8 @@ import { DailyPrayerTime } from "@/types/DailyPrayerTimeType"
 import { JummahTimes } from "@/types/JummahTimesType"
 import { unstable_cache } from "next/cache"
 import { dtNowLocale } from "@/lib/datetimeUtils"
+import { buildSheetStartTimeUpdates } from "@/lib/timetableImport"
+import { TimetableChange } from "@/types/TimetableImportType"
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID ?? ""
 const ADMIN_GOOGLE_SA_PRIVATE_KEY = process.env.ADMIN_GOOGLE_SA_PRIVATE_KEY
@@ -225,4 +227,24 @@ export async function sheetsUpdateConfigurationData(
       values: rows,
     },
   })
+}
+
+export async function sheetsUpdatePrayerStartTimes(changes: TimetableChange[]) {
+  if (!SPREADSHEET_ID) throw new Error("SPREADSHEET_ID has not been configured")
+  const sheets = await getUserSheetsClient()
+  const existing = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: SHEET_NAMES.PrayerTimes,
+    majorDimension: "ROWS",
+  })
+  const updates = buildSheetStartTimeUpdates(existing.data.values ?? [], changes)
+  if (updates.length === 0) throw new Error("There are no start-time cells to update")
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      valueInputOption: "USER_ENTERED",
+      data: updates.map((update) => ({ range: update.range, values: [[update.value]] })),
+    },
+  })
+  return updates.length
 }
