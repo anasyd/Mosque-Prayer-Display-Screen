@@ -5,6 +5,10 @@ import { TimetableImportPreview } from "@/types/TimetableImportType"
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? ""
 // Keep this configurable because Gemini model names and availability can change.
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.8-flash"
+const GEMINI_FALLBACK_MODELS = (process.env.GEMINI_FALLBACK_MODELS ?? "gemini-3.7-flash,gemini-3.6-flash")
+  .split(",")
+  .map((model) => model.trim())
+  .filter(Boolean)
 
 const GEMINI_PROMPT = `Read this prayer timetable image and return ONLY valid JSON.
 Use the visible Gregorian date in each row as the source of truth. Do not infer or shift dates using Hijri dates.
@@ -13,16 +17,35 @@ Times must be 24-hour HH:mm. Use null for an unreadable cell. Never include cong
 
 export async function extractTimetableFromImage(image: Buffer, mimeType: string): Promise<TimetableImportPreview> {
   if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY has not been configured")
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ contents: [{ parts: [{ text: GEMINI_PROMPT }, { inlineData: { mimeType, data: image.toString("base64") } }] }], generationConfig: { responseMimeType: "application/json", temperature: 0 } }),
+  const models = [...new Set([GEMINI_MODEL, ...GEMINI_FALLBACK_MODELS])]
+  const requestBody = JSON.stringify({
+    contents: [{ parts: [{ text: GEMINI_PROMPT }, { inlineData: { mimeType, data: image.toString("base64") } }] }],
+    generationConfig: { responseMimeType: "application/json", temperature: 0 },
   })
-  if (!response.ok) { const message = await response.text(); throw new Error(`Gemini request failed (${response.status}): ${message.slice(0, 300)}`) }
-  const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
-  const text = payload.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("")
-  if (!text) throw new Error("Gemini returned an empty timetable")
-  return parseGeminiTimetableResponse(text)
+  let lastError = "Gemini request failed"
+
+  for (const model of models) {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: requestBody,
+    })
+
+    if (response.ok) {
+      const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+      const text = payload.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("")
+      if (!text) throw new Error(`Gemini returned an empty timetable (${model})`)
+      return parseGeminiTimetableResponse(text)
+    }
+
+    const message = await response.text()
+    lastError = `Gemini request failed (${response.status}) using ${model}: ${message.slice(0, 300)}`
+    // Model capacity and availability errors are commonly temporary. Try the
+    // next configured model before returning the error to the admin UI.
+    if (![404, 429, 500, 502, 503, 504].includes(response.status)) break
+  }
+
+  throw new Error(lastError)
 }
 
 export async function applyTimetableChanges(preview: TimetableImportPreview) {

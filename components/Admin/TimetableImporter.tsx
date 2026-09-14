@@ -8,14 +8,13 @@ const columns = [["fajr_start", "Fajr"], ["sunrise_start", "Sunrise"], ["zuhr_st
 export default function TimetableImporter() {
   const [preview, setPreview] = useState<TimetableImportPreview | null>(null)
   const [fileName, setFileName] = useState("")
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    if (!file) return
-    setFileName(file.name); setPreview(null); setMessage(null); setError(null); setBusy(true)
+  async function readTimetable(file: File) {
+    setFileName(file.name); setSelectedFile(file); setPreview(null); setMessage(null); setError(null); setBusy(true)
     try {
       const body = new FormData(); body.append("image", file)
       const response = await fetch("/api/admin/timetable", { method: "POST", body })
@@ -24,6 +23,15 @@ export default function TimetableImporter() {
       setPreview(data)
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Could not read the image") }
     finally { setBusy(false) }
+  }
+
+  async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (file) await readTimetable(file)
+  }
+
+  async function retryUpload() {
+    if (selectedFile) await readTimetable(selectedFile)
   }
 
   async function applyChanges() {
@@ -46,7 +54,7 @@ export default function TimetableImporter() {
       </div>
       <div className="px-6 py-6 sm:px-8">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-5 text-sm"><span className="font-medium text-slate-800">{fileName || "No image selected"}</span><span className="text-slate-500">Only start times are eligible for update.</span></div>
-        {error && <p role="alert" className="mt-5 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
+        {error && <div role="alert" className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-800"><span>{error}</span>{selectedFile && <button type="button" onClick={retryUpload} disabled={busy} className="rounded-full border border-red-300 px-4 py-2 font-semibold text-red-800 transition hover:bg-red-100 disabled:cursor-wait disabled:opacity-60">{busy ? "Retrying…" : "Retry"}</button>}</div>}
         {message && <p role="status" className="mt-5 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{message}</p>}
         {preview && <div className="mt-6"><div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Review before saving</p><p className="mt-1 text-sm text-slate-600">{preview.changes.length} dates detected{preview.sourceTitle ? ` · ${preview.sourceTitle}` : ""}</p></div><button type="button" onClick={applyChanges} disabled={busy} className="rounded-full bg-[#0c5a4b] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#09483c] disabled:cursor-wait disabled:opacity-60">{busy ? "Saving…" : "Apply to Google Sheet"}</button></div><div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white"><table className="min-w-[720px] w-full text-left text-sm"><thead className="bg-[#e7f0ed] text-xs uppercase tracking-[0.12em] text-[#315a52]"><tr><th className="px-4 py-3">Date</th>{columns.map(([, label]) => <th key={label} className="px-3 py-3">{label}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{preview.changes.map((change) => <tr key={change.date}><td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-800">{change.date}</td>{columns.map(([key]) => <td key={key} className="px-3 py-3 text-slate-600">{change.times[key] ?? <span className="text-amber-600">—</span>}</td>)}</tr>)}</tbody></table></div>{preview.warnings.length > 0 && <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900"><p className="font-semibold">Review warnings</p><ul className="mt-2 list-disc space-y-1 pl-5">{preview.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div>}<p className="mt-4 text-xs leading-5 text-slate-500">The importer never writes congregation/Jama’ah times. Check the preview carefully before applying it.</p></div>}
       </div>
