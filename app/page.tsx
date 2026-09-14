@@ -28,6 +28,8 @@ import Announcement from "@/components/Announcement/Announcement"
 import { ConfigurationJson } from "@/types/ConfigurationType"
 import { ConfigurationProvider } from "@/providers/ConfigurationProvider"
 
+export const dynamic = "force-dynamic"
+
 export async function generateMetadata(): Promise<Metadata> {
   const mosqueMetadata: MosqueMetadataType = await getMetaData()
 
