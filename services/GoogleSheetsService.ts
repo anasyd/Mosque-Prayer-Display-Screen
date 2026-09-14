@@ -72,31 +72,39 @@ export async function isSheetsClientReady(): Promise<boolean> {
     })
     return true
   } catch (error: any) {
-    console.error(error)
+    console.error("Google Sheets connection check failed:", error?.message ?? error)
     return false
   }
 }
 
 export async function sheetsGetMosqueData(): Promise<MosqueData> {
-  try {
-    const configurationData = await sheetsGetConfigurationData()
-    const prayerTimes = await sheetsGetPrayerData()
-    const jummahTimes = await sheetsGetJummahData()
-    const metaData = await sheetsGetMetadata()
-    return {
-      metadata: metaData,
-      jummah_times: jummahTimes,
-      prayer_times: prayerTimes,
-      config: configurationData,
-    }
-  } catch (error: any) {
-    console.error(error)
-    return {
-      metadata: {},
-      jummah_times: [],
-      prayer_times: [],
-      config: configurationDefaults,
-    }
+  // Older mosque spreadsheets commonly only contain PrayerTimes. Keep the
+  // optional tabs from preventing the required prayer data from loading.
+  const [configurationData, prayerTimes, jummahTimes, metaData] =
+    await Promise.all([
+      sheetsGetConfigurationData().catch((error: any) => {
+        console.warn("Configuration sheet unavailable; using defaults:", error?.message ?? error)
+        return configurationDefaults
+      }),
+      sheetsGetPrayerData().catch((error: any) => {
+        console.error("PrayerTimes sheet unavailable:", error?.message ?? error)
+        return []
+      }),
+      sheetsGetJummahData().catch((error: any) => {
+        console.warn("JummahTimes sheet unavailable:", error?.message ?? error)
+        return []
+      }),
+      sheetsGetMetadata().catch((error: any) => {
+        console.warn("Metadata sheet unavailable; using defaults:", error?.message ?? error)
+        return {}
+      }),
+    ])
+
+  return {
+    metadata: metaData,
+    jummah_times: jummahTimes,
+    prayer_times: prayerTimes,
+    config: configurationData,
   }
 }
 
@@ -112,7 +120,7 @@ const sheetsGetPrayerDataCached = unstable_cache(
         prayerData?.data?.values ?? [],
       )
     } catch (error: any) {
-      console.error(error)
+      console.error("PrayerTimes request failed:", error?.message ?? error)
       throw new Error(`Google Sheets API request failed: ${error?.message}`)
     }
   },
@@ -136,7 +144,7 @@ const sheetsGetJummahDataCached = unstable_cache(
         jummahTimesData?.data?.values ?? [],
       ) as JummahTimes
     } catch (error: any) {
-      console.error(error)
+      console.warn("JummahTimes request failed:", error?.message ?? error)
       throw new Error(`Google Sheets API request failed: ${error?.message}`)
     }
   },
@@ -160,7 +168,7 @@ const sheetsGetMetadataCached = unstable_cache(
         metadata?.data?.values ?? [],
       ) as MosqueMetadataType
     } catch (error: any) {
-      console.error(error)
+      console.warn("Metadata request failed:", error?.message ?? error)
       throw new Error(`Google Sheets API request failed: ${error?.message}`)
     }
   },
@@ -185,7 +193,7 @@ const sheetsGetConfigurationDataCached = unstable_cache(
         sheetsUtilValuesToNestedJson(configurationData?.data?.values ?? []),
       ) as ConfigurationJson
     } catch (error: any) {
-      console.error(error)
+      console.warn("Configuration request failed:", error?.message ?? error)
       throw new Error(`Google Sheets API request failed: ${error?.message}`)
     }
   },
