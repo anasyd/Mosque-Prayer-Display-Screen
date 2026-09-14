@@ -23,6 +23,13 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID ?? ""
 const ADMIN_GOOGLE_SA_PRIVATE_KEY = process.env.ADMIN_GOOGLE_SA_PRIVATE_KEY
 const ADMIN_GOOGLE_SA_EMAIL = process.env.ADMIN_GOOGLE_SA_EMAIL
 
+function getGooglePrivateKey() {
+  return ADMIN_GOOGLE_SA_PRIVATE_KEY
+    ?.trim()
+    .replace(/^['"]|['"]$/g, "")
+    .replace(/\\n/g, "\n")
+}
+
 const SHEET_NAMES = {
   PrayerTimes: "PrayerTimes",
   JummahTimes: "JummahTimes",
@@ -42,7 +49,7 @@ export async function getUserSheetsClient() {
   try {
     const googleAuthJwt = new google.auth.JWT({
       email: ADMIN_GOOGLE_SA_EMAIL,
-      key: ADMIN_GOOGLE_SA_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+      key: getGooglePrivateKey(),
       scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     })
 

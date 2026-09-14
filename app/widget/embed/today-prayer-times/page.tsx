@@ -1,5 +1,7 @@
 import { TodayPrayerTime } from "@/app/widget/embed/today-prayer-times/TodayPrayerTime"
 
+export const dynamic = "force-dynamic"
+
 type Props = { searchParams: Promise<any> }
 
 export default async function EmbedPrayerTimesPage({ searchParams }: Props) {

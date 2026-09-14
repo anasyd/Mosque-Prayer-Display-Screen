@@ -3,6 +3,8 @@ import { DailyPrayerTime } from "@/types/DailyPrayerTimeType"
 import "./widget.css"
 import { dtFormatTimeTo12h } from "@/lib/datetimeUtils"
 
+export const dynamic = "force-dynamic"
+
 export default async function Widget({
   searchParams,
 }: {

@@ -1,5 +1,7 @@
 import { getMosqueData } from "@/services/MosqueDataService"
 
+export const dynamic = "force-dynamic"
+
 export async function GET(request: Request) {
   const mosqueData = await getMosqueData()
   const metadata = mosqueData.metadata
