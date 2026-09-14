@@ -209,6 +209,10 @@ export async function sheetsGetAnnouncement(): Promise<AnnouncementData | null> 
   const data = await sheetsGetConfigurationData()
   let announcement = (data?.announcement as unknown as AnnouncementData) ?? null
 
+  if (announcement == null) {
+    return null
+  }
+
   const now = dtNowLocale()
   announcement.is_visible =
     now.isSame(announcement?.date, "day") &&
