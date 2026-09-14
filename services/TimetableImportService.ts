@@ -3,7 +3,8 @@ import { sheetsUpdatePrayerStartTimes } from "@/services/GoogleSheetsService"
 import { TimetableImportPreview } from "@/types/TimetableImportType"
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? ""
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash"
+// Keep this configurable because Gemini model names and availability can change.
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.8-flash"
 
 const GEMINI_PROMPT = `Read this prayer timetable image and return ONLY valid JSON.
 Use the visible Gregorian date in each row as the source of truth. Do not infer or shift dates using Hijri dates.
