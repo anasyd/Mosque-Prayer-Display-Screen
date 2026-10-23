@@ -24,25 +24,53 @@ export async function extractTimetableFromImage(image: Buffer, mimeType: string)
   })
   let lastError = "Gemini request failed"
 
+  // Keep the entire operation within the route's execution budget.
+  const deadline = Date.now() + 110_000
   for (const model of models) {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: requestBody,
-    })
+    for (let attempt = 0; attempt < 3 && Date.now() < deadline; attempt++) {
+      let response: Response
+      try {
+        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
+          body: requestBody,
+          signal: AbortSignal.timeout(Math.min(25_000, deadline - Date.now())),
+        })
+      } catch {
+        lastError = `Gemini timed out or could not be reached using ${model}. Please retry.`
+        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt + Math.random() * 250))
+        continue
+      }
 
-    if (response.ok) {
-      const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
-      const text = payload.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("")
-      if (!text) throw new Error(`Gemini returned an empty timetable (${model})`)
-      return parseGeminiTimetableResponse(text)
+      if (response.ok) {
+        const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }> }
+        const text = payload.candidates?.[0]?.content?.parts?.filter((part) => !part.thought).map((part) => part.text ?? "").join("")
+        try {
+          if (!text) throw new Error("No readable timetable returned")
+          const preview = parseGeminiTimetableResponse(text)
+          if (!preview.changes.length) throw new Error("No valid timetable rows returned")
+          return preview
+        } catch {
+          lastError = `Gemini returned an incomplete or unreadable timetable using ${model}. Try a clearer image.`
+          break
+        }
+      }
+
+      lastError = `Gemini request failed (${response.status}) using ${model}.`
+      if (response.status === 401 || response.status === 403 || response.status === 400) {
+        throw new Error(`${lastError} Check the Gemini API key, billing, and model configuration.`)
+      }
+      if (response.status === 404) break
+      if (![408, 429, 500, 502, 503, 504].includes(response.status)) throw new Error(lastError)
+      lastError += " The service is busy or its quota is exhausted. Please retry shortly."
+      if (attempt < 2) {
+        const retryAfter = response.headers.get("retry-after")
+        const delay = retryAfter ? Number(retryAfter) * 1000 : 1000 * 2 ** attempt + Math.random() * 250
+        // Long quota cooldowns should fall back instead of holding the request open.
+        if (!Number.isFinite(delay) || delay > 5000 || Date.now() + delay >= deadline) break
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      }
     }
-
-    const message = await response.text()
-    lastError = `Gemini request failed (${response.status}) using ${model}: ${message.slice(0, 300)}`
-    // Model capacity and availability errors are commonly temporary. Try the
-    // next configured model before returning the error to the admin UI.
-    if (![404, 429, 500, 502, 503, 504].includes(response.status)) break
   }
 
   throw new Error(lastError)

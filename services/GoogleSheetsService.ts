@@ -14,7 +14,7 @@ import { configurationDefaults } from "@/config/ConfigurationDefaults"
 import { MosqueData, MosqueMetadataType } from "@/types/MosqueDataType"
 import { DailyPrayerTime } from "@/types/DailyPrayerTimeType"
 import { JummahTimes } from "@/types/JummahTimesType"
-import { unstable_cache } from "next/cache"
+import { unstable_cache, revalidateTag } from "next/cache"
 import { dtNowLocale } from "@/lib/datetimeUtils"
 import { buildSheetStartTimeUpdates } from "@/lib/timetableImport"
 import { TimetableChange } from "@/types/TimetableImportType"
@@ -125,7 +125,7 @@ const sheetsGetPrayerDataCached = unstable_cache(
     }
   },
   ["sheetsGetPrayerDataCached"],
-  { revalidate: 60 },
+  { revalidate: 60, tags: ["prayer-times"] },
 )
 
 export async function sheetsGetPrayerData(): Promise<DailyPrayerTime[]> {
@@ -251,19 +251,35 @@ export async function sheetsUpdateConfigurationData(
 export async function sheetsUpdatePrayerStartTimes(changes: TimetableChange[]) {
   if (!SPREADSHEET_ID) throw new Error("SPREADSHEET_ID has not been configured")
   const sheets = await getUserSheetsClient()
-  const existing = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: SHEET_NAMES.PrayerTimes,
-    majorDimension: "ROWS",
-  })
-  const updates = buildSheetStartTimeUpdates(existing.data.values ?? [], changes)
-  if (updates.length === 0) throw new Error("There are no start-time cells to update")
-  await sheets.spreadsheets.values.batchUpdate({
-    spreadsheetId: SPREADSHEET_ID,
-    requestBody: {
-      valueInputOption: "USER_ENTERED",
-      data: updates.map((update) => ({ range: update.range, values: [[update.value]] })),
-    },
-  })
-  return updates.length
+  try {
+    const retryOptions = {
+      timeout: 15_000,
+      retry: true,
+      retryConfig: { retry: 2, httpMethodsToRetry: ["GET", "POST"], statusCodesToRetry: [[429, 429], [500, 599]] as [number, number][] },
+    }
+    const existing = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: SHEET_NAMES.PrayerTimes,
+      majorDimension: "ROWS",
+    }, retryOptions)
+    const updates = buildSheetStartTimeUpdates(existing.data.values ?? [], changes)
+    if (updates.length === 0) throw new Error("There are no start-time cells to update")
+    // Retrying is safe: each request assigns the same values to the same cells.
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        valueInputOption: "USER_ENTERED",
+        data: updates.map((update) => ({ range: update.range, values: [[update.value]] })),
+      },
+    }, retryOptions)
+    revalidateTag("prayer-times", { expire: 0 })
+    return updates.length
+  } catch (error: any) {
+    const status = Number(error?.response?.status ?? error?.code)
+    if (status === 403) throw new Error("Google Sheets denied the update. Share the spreadsheet with the configured service account as an Editor, and ensure the target cells are not protected. Your timetable preview is preserved; retry saving after fixing access.")
+    if (status === 404) throw new Error("Google Sheet not found. Check SPREADSHEET_ID and share the sheet with the configured service account.")
+    if (status === 401 || error?.code === "ERR_OSSL_UNSUPPORTED" || error?.message?.includes("invalid_grant")) throw new Error("Google Sheets credentials are invalid. Check ADMIN_GOOGLE_SA_EMAIL and ADMIN_GOOGLE_SA_PRIVATE_KEY on the server. Your timetable preview is preserved.")
+    if (status === 429 || status >= 500) throw new Error("Google Sheets is temporarily unavailable or rate limited. Your timetable preview is preserved; retry saving shortly.")
+    throw error
+  }
 }

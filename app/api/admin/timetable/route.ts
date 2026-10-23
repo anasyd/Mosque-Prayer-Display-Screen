@@ -2,6 +2,8 @@ import { getSession } from "@/app/auth"
 import { applyTimetableChanges, extractTimetableFromImage } from "@/services/TimetableImportService"
 import { TimetableImportPreview } from "@/types/TimetableImportType"
 
+export const maxDuration = 120
+
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"])
 
