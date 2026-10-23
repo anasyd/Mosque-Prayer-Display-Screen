@@ -241,6 +241,13 @@ If you want to update your domain, you can do so by following the Vercel documen
 
 ## Dev set up
 
+Use Node.js 24.22.1 (the patched Node 24 LTS release). With nvm:
+
+```sh
+nvm install
+nvm use
+```
+
 ```sh
 cp .env.local.example .env.local
 ```
@@ -252,6 +259,12 @@ npm install
 ```sh
 npm run dev
 ```
+
+Set `NEXTAUTH_URL` to `http://localhost:3000` locally and your public site origin
+in production. If `NEXTAUTH_URL_INTERNAL` is set, it must also be a valid URL.
+
+The `postcss-selector-parser` override keeps Tailwind 3's selector parsing on a
+patched release; retain it until Tailwind's dependencies include the fix.
 
 ## Raspberry Pi Setup
 

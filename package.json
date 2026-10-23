@@ -6,34 +6,34 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test": "jest"
   },
   "dependencies": {
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.4",
-    "@types/node": "20.5.9",
+    "@types/node": "^24.19.2",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "autoprefixer": "10.4.15",
-    "axios": "^1.5.0",
+    "axios": "^1.20.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "deepmerge": "^4.3.1",
-    "eslint": "8.48.0",
-    "eslint-config-next": "13.4.19",
-    "googleapis": "^105.0.0",
-    "lodash": "^4.17.21",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.3",
+    "googleapis": "^188.0.0",
+    "lodash": "^4.18.1",
     "lucide-react": "^0.555.0",
-    "moment": "^2.29.4",
+    "moment": "^2.31.0",
     "moment-hijri": "^2.1.2",
-    "next": "^16.1.0",
-    "next-auth": "^4.24.13",
-    "postcss": "^8.4.31",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
+    "next": "^16.4.3",
+    "next-auth": "^4.24.15",
+    "postcss": "^8.5.31",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "tailwind-merge": "^3.4.0",
-    "tailwindcss": "3.3.3",
+    "tailwindcss": "^3.4.19",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "5.2.2"
   },
@@ -51,5 +51,11 @@
     "prettier": "^3.7.4",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2"
+  },
+  "engines": {
+    "node": ">=24.22.1 <25"
+  },
+  "overrides": {
+    "postcss-selector-parser": "^7.1.6"
   }
 }

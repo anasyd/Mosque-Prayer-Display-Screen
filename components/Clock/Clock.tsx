@@ -6,19 +6,15 @@ import {
 } from "@/lib/datetimeUtils"
 
 export default function Clock({ darkMode = false }: { darkMode?: boolean }) {
-  const [time, setTime] = useState(getCurrentTimeFormatted())
+  const [time, setTime] = useState(dtNowLocaleFormatTime12hAmPm)
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setTime(getCurrentTimeFormatted())
+      setTime(dtNowLocaleFormatTime12hAmPm())
     }, 1000)
 
     return () => clearInterval(interval)
   }, [])
-
-  function getCurrentTimeFormatted() {
-    return dtNowLocaleFormatTime12hAmPm()
-  }
 
   return (
     <div
